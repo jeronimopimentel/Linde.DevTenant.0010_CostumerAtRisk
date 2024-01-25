@@ -20,64 +20,126 @@ pd.options.display.float_format = '{:,.2f}'.format
 """
 
 def get_sql_data(query):
-    server = 'BRARJ2DBSQL01' 
-    database = 'DIGITAL_PH_DEV' 
-    username = 'BRAXCARPH1' 
-    password = 'yKla2dJaG4wmVmK3zrJ$'
-    cnxn = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password)
-    cursor = cnxn.cursor()
-    data = pd.read_sql(query,cnxn)
-    return data
+    """
+        Connects to a SQL Server database and retrieves data based on the provided SQL query.
+
+        Parameters:
+        - query (str): SQL query to be executed.
+
+        Returns:
+        - pandas.DataFrame: A DataFrame containing the results of the SQL query.
+        """
+
+    try:
+        server = 'BRARJ2DBSQL01'
+        database = 'DIGITAL_PH_DEV'
+        username = 'BRAXCARPH1'
+        password = 'yKla2dJaG4wmVmK3zrJ$'
+        cnxn = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password)
+        cursor = cnxn.cursor()
+        data = pd.read_sql(query,cnxn)
+
+        return data
+
+    except Exception as e:
+        print(f"Error connecting to the database: {str(e)}")
+    finally:
+        cursor.close()
+        cnxn.close()
+
+
 
 def process_sales(data_input, connection_string, connection_string2, connection_string3, connection_string4):
-    data_1 = data_input.copy()
-    data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([103201,1103201]),
-                                   'ARGON LIQ. EN TERMOS', data_1['TIPOPRODSP2'])
-    data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([901273]),
-                                       'NITROGENO GASEOSO', data_1['TIPOPRODSP2'])
-    data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([901270]),
-                                       'HELIO ANALITICO', data_1['TIPOPRODSP2'])
-    data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([901159, 901272]),
-                                       'ARGON GASEOSO', data_1['TIPOPRODSP2'])
-    data_1['FORMADIST'] = np.where(data_1['CODPROD'].isin([901159, 1901159, 2901159, 901272, 1901272, 2901272]),
-                                       'PACKAGED', data_1['FORMADIST'])
-    
-    print(len(data_1))
-    data_1 = data_1[(data_1['FORMADIST'].isin(['PACKAGED', 'CO2 GASEOSO', 'HIELO SECO']))]
-    data_1 = data_1[~(data_1['TIPOPRODSP2'].isin(['HOME CARE']))]
-    data_1_add = get_sql_data(connection_string4)
-    data_1 = data_1.merge(data_1_add, how='left', left_on='CODIGO', right_on='CLIENT_CLI')
-    print(len(data_1))
-    data_2_gnac = get_sql_data(connection_string)
-    data_2_prod = get_sql_data(connection_string2)
-    data_1['AGENCIA'] = data_1['AGENCIA'].str.strip()
-    data_1['GERENCIA_REGIONAL'] = data_1['GERENCIA_REGIONAL'].str.strip()
-    data_1['CODPROD'] = data_1['CODPROD'].astype('int64')
-    data_2_gnac = data_2_gnac[['GERENCIA_REGIONAL','GERENTE_NAC_MASTER']]
-    data_2_prod['Codprod'] = data_2_prod['Codprod'].astype('int64')
-    data_2_prod = data_2_prod[['Codprod', 'TIPO']].rename(columns={'Codprod':'CODPROD','TIPO':'TABLA_TIPO_MASTER'})
-    data_out = data_1.merge(data_2_gnac, how='left',on='GERENCIA_REGIONAL').merge(data_2_prod, how='left', on='CODPROD')
-    print(len(data_out))
-    data_out['GERENTE_NAC'] = data_out['GERENTE_NAC_MASTER']
-    data_out['TABLA_TIPO'] = data_out['TABLA_TIPO_MASTER']
-    data_out = data_out.drop(columns=['GERENTE_NAC_MASTER','TABLA_TIPO_MASTER'])
-    data_3 = get_sql_data(connection_string3).rename(columns={'ARTID':'CODPROD'})
-    data_3 = data_3[['CODPROD','MDDDSC']]
-    print(len(data_out))
-    data_out['CODPROD'] = data_out['CODPROD'].astype('int64')
-    data_3['CODPROD'] = data_3['CODPROD'].astype('int64')
-    data_out = data_out.merge(data_3, how='left', on='CODPROD') 
-    data_out['periodo'] = data_out['FECHA_COMP'].dt.strftime('%Y%m')
-    return data_out
+    """
+        Processes sales data by transforming the input DataFrame 'data_input'.
+        Adjusts the 'TIPOPRODSP2' and 'FORMADIST' columns based on specific 'CODPROD' values.
+        Filters and manipulates the data, performs merges with other data sources using SQL connections,
+        and ultimately adds additional information. Returns a processed DataFrame with enhanced information for further analysis.
+        """
+    try:
+        data_1 = data_input.copy()
+        data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([103201,1103201]),
+                                       'ARGON LIQ. EN TERMOS', data_1['TIPOPRODSP2'])
 
-# Calculate total sales last 12M (including services)
+        data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([901273]),
+                                           'NITROGENO GASEOSO', data_1['TIPOPRODSP2'])
+
+        data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([901270]),
+                                           'HELIO ANALITICO', data_1['TIPOPRODSP2'])
+
+        data_1['TIPOPRODSP2'] = np.where(data_1['CODPROD'].isin([901159, 901272]),
+                                           'ARGON GASEOSO', data_1['TIPOPRODSP2'])
+
+        data_1['FORMADIST'] = np.where(data_1['CODPROD'].isin([901159, 1901159, 2901159, 901272, 1901272, 2901272]),
+                                           'PACKAGED', data_1['FORMADIST'])
+
+        print(len(data_1))
+        data_1 = data_1[(data_1['FORMADIST'].isin(['PACKAGED', 'CO2 GASEOSO', 'HIELO SECO']))]
+        data_1 = data_1[~(data_1['TIPOPRODSP2'].isin(['HOME CARE']))]
+
+        #----Merge A second Df using connection_string 4 With CODIDO and Client_CLI
+        data_1_add = get_sql_data(connection_string4)
+        data_1 = data_1.merge(data_1_add, how='left', left_on='CODIGO', right_on='CLIENT_CLI')
+        print(len(data_1))
+
+        #---- Load conection_string and connection_string2 df´s
+        data_2_gnac = get_sql_data(connection_string)
+        data_2_prod = get_sql_data(connection_string2)
+
+        # ---- Process Columns data in Merged Data_1
+        data_1['AGENCIA'] = data_1['AGENCIA'].str.strip()
+        data_1['GERENCIA_REGIONAL'] = data_1['GERENCIA_REGIONAL'].str.strip()
+        data_1['CODPROD'] = data_1['CODPROD'].astype('int64')
+
+        # ---- Process Connection String1 and 2 data
+        data_2_gnac = data_2_gnac[['GERENCIA_REGIONAL','GERENTE_NAC_MASTER']]
+        data_2_prod['Codprod'] = data_2_prod['Codprod'].astype('int64')
+        data_2_prod = data_2_prod[['Codprod', 'TIPO']].rename(columns={'Codprod':'CODPROD','TIPO':'TABLA_TIPO_MASTER'})
+
+        #---- Final Merge of all the Df´s called
+        data_out = data_1.merge(data_2_gnac, how='left',on='GERENCIA_REGIONAL').merge(data_2_prod, how='left', on='CODPROD')
+
+        print(len(data_out))
+
+        #---- Final Data Processing Of Data Output
+
+        data_out['GERENTE_NAC'] = data_out['GERENTE_NAC_MASTER']
+        data_out['TABLA_TIPO'] = data_out['TABLA_TIPO_MASTER']
+        data_out = data_out.drop(columns=['GERENTE_NAC_MASTER','TABLA_TIPO_MASTER'])
+        data_3 = get_sql_data(connection_string3).rename(columns={'ARTID':'CODPROD'})
+        data_3 = data_3[['CODPROD','MDDDSC']]
+        print(len(data_out))
+        data_out['CODPROD'] = data_out['CODPROD'].astype('int64')
+        data_3['CODPROD'] = data_3['CODPROD'].astype('int64')
+        data_out = data_out.merge(data_3, how='left', on='CODPROD')
+        data_out['periodo'] = data_out['FECHA_COMP'].dt.strftime('%Y%m')
+
+        return data_out
+
+    except Exception as e:
+        print(f"ERROR at : {e}")
+
+
+
+
 def calculate_total_sale_last_12M(df_input):
-    df_analysis = df_input.copy()
-    time_max = pd.to_datetime(df_analysis['periodo'].max(), format='%Y%m')
-    time_min = time_max + relativedelta(months=-11)
-    df_analysis = df_analysis[(df_analysis['FECHA_COMP'] >= time_min)]
-    df_analysis = df_analysis.groupby(['CODIGO','AGENCIA']).agg({'PESOS':'sum'}).reset_index()
-    return df_analysis
+    """
+
+    :param df_input:
+    :return: Df with accumulated PESOS in the last 12 months
+    """
+    try:
+        df_analysis = df_input.copy()
+        time_max = pd.to_datetime(df_analysis['periodo'].max(), format='%Y%m')
+        time_min = time_max + relativedelta(months=-11)
+        df_analysis = df_analysis[(df_analysis['FECHA_COMP'] >= time_min)]
+        df_analysis = df_analysis.groupby(['CODIGO','AGENCIA']).agg({'PESOS':'sum'}).reset_index()
+        return df_analysis
+
+    except Exception as e:
+        print(f"Error at: {e}")
+
+
 
 # Reduce data to the id-period-product level. (Group all invoices/creditnotes/debitnotes inside a singular month)
 def data_step2a_process_idperiod(df_input, id_column, product_column, time_column, suc_column,
@@ -118,6 +180,9 @@ def data_step2a_process_idperiod(df_input, id_column, product_column, time_colum
     
     return df2
 
+
+
+
 # Get last transaction on the last 13-24 months. (for average time between purchases feature)
 def data_step2b_last_transaction(df_input, training_window, analysis_period, analysis_window, col_groupby, op):
     df = df_input.copy()
@@ -128,6 +193,9 @@ def data_step2b_last_transaction(df_input, training_window, analysis_period, ana
     
     df = df.groupby(col_groupby).agg({'periodo':op}).rename(columns={'periodo':'Purchase_Ref_Old'})
     return df
+
+
+
 
 # Compress data of all periods into one single row. id-product level
 def data_step3(df_input, config, analysis_period_input, attribute_window, id_column, time_column, prod_column, suc_column,
@@ -168,6 +236,9 @@ def data_step3(df_input, config, analysis_period_input, attribute_window, id_col
       
     return df_final
 
+
+
+
 def data_step3_target_for_cv(df_input, analysis_period, performance_window, id_column, time_column, prod_column):
     df = df_input.copy()
     performance_ends = pd.to_datetime(analysis_period, format='%Y%m')
@@ -182,6 +253,9 @@ def data_step3_target_for_cv(df_input, analysis_period, performance_window, id_c
     df_perf['target'] = np.where(df_perf['future_spend_total'].isna(), 1, 0)
     df_perf = df_perf.reset_index()
     return df_perf
+
+
+
 
 # Perform cap/flooring process
 def data_step4a(df_input, capping, cap, flooring, floor, proc_list):
@@ -200,11 +274,15 @@ def data_step4a(df_input, capping, cap, flooring, floor, proc_list):
                 
     return df
 
+
+
 # One hot encode categorical values for model
 def data_step4b(df_input, columns_to_encode):
     df = df_input.copy()
     encoded = pd.get_dummies(df[columns_to_encode])
     return df.merge(encoded, how='left', left_index=True,right_index=True)
+
+
 
 def calibrate_model(df_input, save = False):
     
@@ -254,6 +332,8 @@ def calibrate_model(df_input, save = False):
             pickle.dump(rf_random, file)
             
     return rf_random
+
+
 
 # Generate metrics for CAR
 def generate_metrics(df_input):
@@ -316,6 +396,8 @@ def generate_metrics(df_input):
             
     return output_metrics
 
+
+
 # Model function. Loads the model and run the predictions on production data.
 def model_and_predict(df_input, rf_calibrated, load=False):
     
@@ -336,6 +418,8 @@ def model_and_predict(df_input, rf_calibrated, load=False):
     data['Churn_Probability'] = (pd.DataFrame(rf_calibrated.predict_proba(x)))[1]
     return data
 
+
+
 def risk_classification_gen(df_input):
     df_result = df_input.copy() 
     max_date = pd.to_datetime(df_result['periodo_analisis'].max(), format='%Y%m') + relativedelta(months=-2)
@@ -350,7 +434,11 @@ def risk_classification_gen(df_input):
     df_result['Risk_Level'] = np.select(conditions, risk_levels, default='Unknown') 
     return df_result
 
+
+
 # Export into .xlsx files for the app.
+
+
 def export_to_excel(filename, table_name, df):
     writer = pd.ExcelWriter(filename, engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Sheet1', startrow=1, header=False, index=False)

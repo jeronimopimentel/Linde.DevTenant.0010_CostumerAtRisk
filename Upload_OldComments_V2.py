@@ -5,15 +5,34 @@ import pyodbc
 
 
 def insert_data_to_sql(data, table_name, schema_name):
-    server = 'BRARJ2DBSQL01'
-    database = 'DIGITAL_PH_DEV'
-    username = 'BRAXCARPH1'
-    password = 'yKla2dJaG4wmVmK3zrJ$'
-    quoted = urllib.parse.quote_plus(
-        'DRIVER={ODBC Driver 17 for SQL Server};SERVER=BRARJ2DBSQL01;DATABASE=DIGITAL_PH_DEV;UID=' + username + ';PWD=' + password)
-    engine = create_engine('mssql+pyodbc:///?odbc_connect={}'.format(quoted))
-    data.to_sql(table_name, schema=schema_name, con=engine, if_exists='replace', index=False)
-    print('Upload of {} to {} schema: {} completed'.format(table_name, database, schema_name))
+    """
+        Inserts a Pandas DataFrame into a specified SQL Server table and schema using SQLAlchemy and PyODBC.
+
+        Parameters:
+        - data (pd.DataFrame): The DataFrame to be inserted into the SQL Server table.
+        - table_name (str): The name of the target table in the SQL Server database.
+        - schema_name (str): The name of the schema in which the table resides.
+
+        Note:
+        - This function handles database connection, uploads the DataFrame to the specified table, and prints a completion message.
+        - Exception handling is implemented to catch and print any errors that may occur during the process.
+
+        Example usage:
+        insert_data_to_sql(my_data, 'my_table', 'my_schema')
+        """
+    try:
+        server = 'BRARJ2DBSQL01'
+        database = 'DIGITAL_PH_DEV'
+        username = 'BRAXCARPH1'
+        password = 'yKla2dJaG4wmVmK3zrJ$'
+        quoted = urllib.parse.quote_plus(
+            'DRIVER={ODBC Driver 17 for SQL Server};SERVER=BRARJ2DBSQL01;DATABASE=DIGITAL_PH_DEV;UID=' + username + ';PWD=' + password)
+        engine = create_engine('mssql+pyodbc:///?odbc_connect={}'.format(quoted))
+        data.to_sql(table_name, schema=schema_name, con=engine, if_exists='replace', index=False)
+        print('Upload of {} to {} schema: {} completed'.format(table_name, database, schema_name))
+
+    except Exception as e:
+        print(f'Error: {e}')
 
 
 table_n = 'last_month_clientlist'
